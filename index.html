@@ -1503,13 +1503,17 @@ async function cpTxt(txt){
 async function initDefaultUsers(){
   try{
     const defaults={
-      "ADM":             {nome:"ADM",             senha:"admin123",admin:true},
+      "ADM":             {nome:"ADM",             senha:"admin1234",admin:true},
     };
     const snap=await get(r("usuarios"));
     const existing=snap.val()||{};
     const toAdd={};
     for(const [k,v] of Object.entries(defaults)){
       if(!existing[k]) toAdd[k]=v;
+    }
+    // migração: senha padrão antiga do ADM -> nova senha
+    if(existing.ADM && existing.ADM.senha==="admin123"){
+      toAdd.ADM={...existing.ADM, senha:"admin1234", admin:true};
     }
     if(Object.keys(toAdd).length) await update(r("usuarios"),toAdd);
   }catch(e){ console.warn("initDefaultUsers:",e); }
