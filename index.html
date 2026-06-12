@@ -1320,20 +1320,20 @@ let ref, onValue, set, update, push, remove, get, DB;
 if (ONLINE) {
   try {
     const app = initializeApp({
-      apiKey:"AIzaSyBdxd54oFM3eWH1duC5BTdJzjGGRDLMq-Q",
-      authDomain:"mary-cb817.firebaseapp.com",
-      databaseURL:"https://mary-cb817-default-rtdb.firebaseio.com",
-      projectId:"mary-cb817",
-      storageBucket:"mary-cb817.firebasestorage.app",
-      messagingSenderId:"887348832569",
-      appId:"1:887348832569:web:c6d9c32a1a1c402b8960e8"
+      apiKey:"AIzaSyDVIKbfNVw4_iQGdiLrJhRfcPSVNjeZDLU",
+      authDomain:"comando-geral-98c87.firebaseapp.com",
+      databaseURL:"https://comando-geral-98c87-default-rtdb.firebaseio.com",
+      projectId:"comando-geral-98c87",
+      storageBucket:"comando-geral-98c87.firebasestorage.app",
+      messagingSenderId:"744810462465",
+      appId:"1:744810462465:web:075ce2c6fdad28e6b1ef00",
+      measurementId:"G-VFZR13K2HN"
     });
     DB=_getDatabase(app);
     ref=_ref; onValue=_onValue; set=_set; update=_update; push=_push; remove=_remove; get=_get;
   } catch(e){ console.error("Firebase falhou, usando local:",e); }
 }
-if (!DB) {
-  // Banco LOCAL (mesma API do Firebase)
+function buildLocalDB(){
   const LS="painel_efetivo_db_v1";
   const store=(()=>{try{return JSON.parse(localStorage.getItem(LS))||{};}catch{return{};}})();
   const subs=[];
@@ -1346,20 +1346,27 @@ if (!DB) {
   const clone=v=>v==null?v:JSON.parse(JSON.stringify(v));
   const fid=()=>"k"+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
   const emit=()=>{persist();subs.forEach(l=>{try{l.cb({val:()=>clone(getAt(l.path))});}catch(e){}});};
-  DB={};
-  ref=(_db,path)=>({_path:path});
-  set=async(n,v)=>{setAt(n._path,clone(v));emit();};
-  update=async(n,obj)=>{const cur=getAt(n._path);const m=(typeof cur==="object"&&cur)?cur:{};
-    for(const k in obj){if(obj[k]===null)delete m[k];else m[k]=clone(obj[k]);}setAt(n._path,m);emit();};
-  push=async(n,v)=>{const key=fid();setAt(n._path+"/"+key,clone(v));emit();return{key};};
-  remove=async n=>{setAt(n._path,null);emit();};
-  get=async n=>({val:()=>clone(getAt(n._path))});
-  onValue=(n,cb)=>{const l={path:n._path,cb};subs.push(l);cb({val:()=>clone(getAt(n._path))});
-    return()=>{const i=subs.indexOf(l);if(i>=0)subs.splice(i,1);};};
   window.addEventListener("storage",e=>{if(e.key===LS){try{const f=JSON.parse(e.newValue)||{};
     for(const k in store)delete store[k];Object.assign(store,f);
     subs.forEach(l=>{try{l.cb({val:()=>clone(getAt(l.path))});}catch(_){}});}catch(_){}}});
+  return {
+    DB:{__local:true},
+    ref:(_db,path)=>({_path:path}),
+    set:async(n,v)=>{setAt(n._path,clone(v));emit();},
+    update:async(n,obj)=>{const cur=getAt(n._path);const m=(typeof cur==="object"&&cur)?cur:{};
+      for(const k in obj){if(obj[k]===null)delete m[k];else m[k]=clone(obj[k]);}setAt(n._path,m);emit();},
+    push:async(n,v)=>{const key=fid();setAt(n._path+"/"+key,clone(v));emit();return{key};},
+    remove:async n=>{setAt(n._path,null);emit();},
+    get:async n=>({val:()=>clone(getAt(n._path))}),
+    onValue:(n,cb)=>{const l={path:n._path,cb};subs.push(l);cb({val:()=>clone(getAt(n._path))});
+      return()=>{const i=subs.indexOf(l);if(i>=0)subs.splice(i,1);};}
+  };
 }
+function usarBancoLocal(){
+  const L=buildLocalDB();
+  DB=L.DB; ref=L.ref; set=L.set; update=L.update; push=L.push; remove=L.remove; get=L.get; onValue=L.onValue;
+}
+if (!DB) { usarBancoLocal(); }
 const BASE = "efetivo_novo";
 
 // ── UNIDADES ─────────────────────────────────────────────────────
@@ -1418,7 +1425,7 @@ async function dbs(path,val){ sync("s"); try{ await set(r(path),val);    sync("o
 async function dbu(path,val){ sync("s"); try{ await update(r(path),val); sync("ok"); } catch(e){ sync("e"); toast(e.message,"error"); throw e; } }
 async function dbp(path,val){ sync("s"); try{ const k=await push(r(path),val); sync("ok"); return k.key; } catch(e){ sync("e"); toast(e.message,"error"); throw e; } }
 async function dbd(path)    { sync("s"); try{ await remove(r(path));      sync("ok"); } catch(e){ sync("e"); toast(e.message,"error"); throw e; } }
-function sync(s){ const el=g("sync-chip"),tx=g("sync-txt"); if(!el||!tx)return; el.className="sync-chip"+(s==="s"?" syncing":s==="e"?" error":""); tx.textContent=s==="s"?"Sincronizando...":s==="e"?"Erro de conexão":"Sincronizado"; }
+function sync(s){ const el=g("sync-chip"),tx=g("sync-txt"); if(!el||!tx)return; el.className="sync-chip"+(s==="s"?" syncing":s==="e"?" error":""); tx.textContent=(DB&&DB.__local)?"Salvo no aparelho":(s==="s"?"Sincronizando...":s==="e"?"Erro de conexão":"Sincronizado"); }
 
 const g       = id => document.getElementById(id);
 const esc     = s  => String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -1528,6 +1535,7 @@ async function initDefaultEfetivo(){
 
 function mostrarApp(){
   g("login-view").classList.add("hidden");
+  goTo("dashboard");
   g("app").classList.remove("hidden");
   const u=getSessionUser();
   setText("sb-username", u||"—");
@@ -2383,12 +2391,11 @@ function setupFormatacao(){
 // O relatório filtra as bolas relevantes para o dia de hoje.
 
 function _getDiaTipo(){
-  // 0=dom,1=seg,2=ter,3=qua,4=qui,5=sex,6=sáb
-  const d=new Date().getDay();
-  if(d===5) return{tipo:"sexta", labels:["Qui","Sex"], indices:[0,1]};
-  if(d===0) return{tipo:"domingo", labels:["Sáb","Dom"], indices:[0,1]};
-  // qualquer outro dia usa lógica de quarta (3 bolas)
-  return{tipo:"quarta", labels:["Seg","Ter","Qua"], indices:[0,1,2]};
+  // blocos: Seg-Ter-Qua (3) | Qui-Sex (2) | Sáb-Dom (2)
+  const d=new Date().getDay(); // 0=dom ... 6=sáb
+  if(d>=4&&d<=5) return{tipo:"quinta-sexta", labels:["Qui","Sex"], indices:[0,1]};
+  if(d===6||d===0) return{tipo:"fim-de-semana", labels:["Sáb","Dom"], indices:[0,1]};
+  return{tipo:"semana", labels:["Seg","Ter","Qua"], indices:[0,1,2]};
 }
 
 // Retorna só as bolinhas válidas (🟢🟡🔴), sem ⚪ e 🟣
@@ -2414,7 +2421,7 @@ function renderRelatorio(){
   const hoje=listDates();
   const {tipo,labels}=_getDiaTipo();
   const labelStr=labels.join(" / ");
-  const tipoLabel=tipo==="sexta"?"Sexta-feira":tipo==="domingo"?"Domingo":"Quarta-feira";
+  const tipoLabel=tipo==="quinta-sexta"?"Quinta/Sexta":tipo==="fim-de-semana"?"Sábado/Domingo":"Segunda a Quarta";
 
   const ferias=ef.filter(p=>p.ferias);
   const pres=ef.filter(_hasGreen),falt=ef.filter(p=>!_hasGreen(p)),dest=ef.filter(_allGreen);
@@ -2434,7 +2441,7 @@ function renderRelatorio(){
 function buildDiscRelatorio(){
   const ef=Object.values(S.ef), hoje=listDates();
   const {tipo,labels}=_getDiaTipo();
-  const tipoLabel=tipo==="sexta"?"Sexta-feira":tipo==="domingo"?"Domingo":"Quarta-feira";
+  const tipoLabel=tipo==="quinta-sexta"?"Quinta/Sexta":tipo==="fim-de-semana"?"Sábado/Domingo":"Segunda a Quarta";
   const labelStr=labels.join(" / ");
 
   const pres=ef.filter(_hasGreen);
@@ -2554,6 +2561,21 @@ async function addTL(text,color="blue"){
 }
 
 // ── BOOT (executa só depois de TODO o código carregar) ──
+async function verificarBanco(){
+  if(!DB || DB.__local) return; // já é local
+  try{
+    await Promise.race([
+      get(ref(DB, BASE+"/__ping")),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),7000))
+    ]);
+  }catch(e){
+    console.warn("Banco online indisponível — usando armazenamento do aparelho:", e&&e.message);
+    usarBancoLocal();
+    try{ toast("Banco online indisponível — salvando neste aparelho.","warning"); }catch(_){}
+    const tx=g("sync-txt"); if(tx) tx.textContent="Salvo no aparelho";
+  }
+}
+verificarBanco().then(()=>{
 if(sessionOk()){
   mostrarApp();
 } else {
@@ -2580,6 +2602,7 @@ if(sessionOk()){
     if(btn){ btn.disabled=false; btn.innerHTML="ACESSAR O SISTEMA <span style='font-size:1.4rem'>›</span>"; }
   });
 }
+});
 
 </script>
 
